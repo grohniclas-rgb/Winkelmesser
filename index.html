@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goniometer - Mit Sensor-Status</title>
+    <!-- Bibliothek für PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary: #005b96;
+            --secondary: #03396c;
+            --bg: #f4f7f6;
+            --text: #333;
+            --card: #ffffff;
+            --success: #28a745;
+            --right-color: #e67e22;
+            --left-color: #8e44ad;
+            --warning-bg: #fff3cd;
+            --warning-border: #ffc107;
+            --danger: #d9534f;
+            --gray: #6c757d;
+        }
+        * { box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { margin: 0; padding: 0; background-color: var(--bg); color: var(--text); }
+        header { background-color: var(--primary); color: white; padding: 1rem; text-align: center; }
+        .container { max-width: 600px; margin: 0 auto; padding: 1rem; }
+        .card { background: var(--card); border-radius: 10px; padding: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+        
+        h1, h2, h3 { margin-top: 0; }
+        
+        button {
+            width: 100%; padding: 1rem; margin: 0.5rem 0; border: none; border-radius: 8px;
+            font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--secondary); }
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-warning { background-color: #f0ad4e; color: white; padding: 0.5rem 1rem; font-size: 0.9rem; width: auto; }
+        .btn-outline { background-color: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-skip { background-color: transparent; border: 2px solid var(--gray); color: var(--gray); font-size: 0.95rem; padding: 0.6rem; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; border-color: #ccc; color: #666; }
+
+        .checkbox-group { display: flex; flex-direction: column; gap: 10px; margin: 15px 0; }
+        .checkbox-label { display: flex; align-items: center; font-size: 1.2rem; padding: 10px; background: #eee; border-radius: 8px; }
+        .checkbox-label input { width: 25px; height: 25px; margin-right: 15px; }
+        input[type="text"] { width: 100%; padding: 10px; font-size: 1.1rem; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; }
+
+        .title-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .side-badge { padding: 5px 15px; border-radius: 20px; color: white; font-size: 1.2rem; font-weight: bold; }
+        .badge-rechts { background-color: var(--right-color); }
+        .badge-links { background-color: var(--left-color); }
+        
+        /* Sensor Status Indikator */
+        .sensor-status { font-size: 0.85rem; padding: 5px 10px; border-radius: 4px; text-align: center; margin-bottom: 10px; font-weight: bold; }
+        .status-ok { background-color: #d4edda; color: #155724; }
+        .status-error { background-color: #f8d7da; color: #721c24; }
+
+        .angle-display { font-size: 4rem; font-weight: bold; text-align: center; color: var(--primary); margin: 1rem 0; }
+        .instruction-img { width: 100%; border-radius: 8px; margin-bottom: 1rem; object-fit: cover; }
+        .instruction-text { font-size: 1.1rem; line-height: 1.5; background: #eef5f9; padding: 10px; border-left: 4px solid var(--primary); margin-bottom: 1rem;}
+
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; text-align: center; }
+        th, td { border: 1px solid #ddd; padding: 10px; }
+        th { background-color: var(--primary); color: white; text-align: center; }
+        td:first-child, td:nth-child(2) { text-align: left; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        
+        .td-rechts { color: var(--right-color); font-weight: bold; }
+        .td-links { color: var(--left-color); font-weight: bold; }
+        .highlight-row { background-color: #fcf8e3 !important; border: 2px solid var(--warning-border); }
+        .deviation-badge { display: inline-block; background-color: var(--danger); color: white; padding: 2px 6px; font-size: 0.75rem; border-radius: 4px; margin-top: 4px; }
+
+        .free-list { background: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin-top: 15px; max-height: 150px; overflow-y: auto; text-align: left; }
+        .free-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Smart Goniometer</h1>
+        <p>Neutral-0-Methode | Mit Sensor-Diagnose</p>
+    </header>
+
+    <div class="container">
+        <!-- SCREEN 1: AUSWAHL -->
+        <div id="screen-setup" class="card">
+            <h2>Neue Untersuchung</h2>
+            <label>Patienten-ID / Name (optional):</label>
+            <input type="text" id="patientName" placeholder="Max Mustermann">
+            
+            <h3>Option A: Vordefinierte Gelenke (Seitenvergleich)</h3>
+            <div class="checkbox-group">
+                <label class="checkbox-label"><input type="checkbox" value="Schulter"> Schulter</label>
+                <label class="checkbox-label"><input type="checkbox" value="Ellenbogen"> Ellenbogen</label>
+                <label class="checkbox-label"><input type="checkbox" value="Hüfte"> Hüfte</label>
+                <label class="checkbox-label"><input type="checkbox" value="Knie"> Knie</label>
+                <label class="checkbox-label"><input type="checkbox" value="OSG"> OSG (Sprunggelenk)</label>
+            </div>
+            <button class="btn-primary" onclick="startApp()">Standard-Messung Starten</button>
+
+            <hr style="margin: 25px 0; border: 0; border-top: 2px solid #eee;">
+
+            <h3>Option B: Freie Messung</h3>
+            <button class="btn-outline" onclick="startFreeMeasurementMode()">Freie Messung Starten</button>
+
+            <p style="font-size: 0.8rem; color: #666; text-align: center; margin-top: 15px;">
+                Wichtig: Bitte direkt im Smartphone-Browser öffnen (nicht am PC).
+            </p>
+        </div>
+
+        <!-- SCREEN 2: STANDARD MESSUNG -->
+        <div id="screen-measurement" class="card hidden">
+            <div class="title-flex">
+                <h2 id="m-title" style="margin: 0;">Gelenk - Bewegung</h2>
+                <div id="m-side-badge" class="side-badge">RECHTS</div>
+            </div>
+            
+            <!-- Sensor Status Anzeige -->
+            <div id="sensorStatusBox" class="sensor-status status-error">Warte auf Sensordaten (Bitte Smartphone bewegen)...</div>
+
+            <div class="instruction-text" id="m-instruction" style="margin-top: 10px;">Anleitungstext hier...</div>
+            <img id="m-image" class="instruction-img" src="" alt="Anleitung">
+            
+            <div class="angle-display" id="angle-value">--°</div>
+            
+            <button id="btn-zero" class="btn-outline" onclick="setZero()">1. Neutralstellung (0°) setzen</button>
+            <button id="btn-save" class="btn-primary" onclick="saveValue()" disabled>2. Wert speichern</button>
+            <button id="btn-next" class="btn-success hidden" onclick="nextMeasurement()">3. Fertig (Nächste Messung)</button>
+            <button id="btn-skip" class="btn-skip" onclick="skipMeasurement()">Messung überspringen</button>
+        </div>
+
+        <!-- SCREEN 2B: FREIE MESSUNG -->
+        <div id="screen-free" class="card hidden">
+            <h2>Freie Messung</h2>
+            <label>Bezeichnung der Messung:</label>
+            <input type="text" id="freeLabelInput" placeholder="z.B. Rumpf Flexion">
+            
+            <!-- Sensor Status Anzeige -->
+            <div id="sensorStatusBoxFree" class="sensor-status status-error">Warte auf Sensordaten (Bitte Smartphone bewegen)...</div>
+
+            <div class="angle-display" id="free-angle-value">--°</div>
+            
+            <button id="btn-free-zero" class="btn-outline" onclick="setFreeZero()">1. Neutralstellung (0°) setzen</button>
+            <button id="btn-free-save" class="btn-primary" onclick="saveFreeValue()" disabled>2. Wert speichern</button>
+            
+            <div style="margin-top: 20px;">
+                <h4 style="margin-bottom: 5px;">Bereits gespeicherte freie Messungen:</h4>
+                <div class="free-list" id="freeListContainer">
+                    <i style="color: #999;">Noch keine Messungen in dieser Sitzung.</i>
+                </div>
+            </div>
+
+            <button class="btn-success" style="margin-top: 20px;" onclick="showResults()">Messungen beenden & zu den Ergebnissen</button>
+        </div>
+
+        <!-- SCREEN 3: ERGEBNISSE -->
+        <div id="screen-results" class="card hidden">
+            <h2>Ergebnisse & Re-Test</h2>
+            <p>Patient: <strong id="res-patient"></strong></p>
+            
+            <div id="resultsContainer"></div>
+            
+            <button class="btn-primary" style="margin-top: 20px;" onclick="exportPDF()">Als PDF speichern</button>
+            <button class="btn-outline" onclick="location.reload()">Neue Untersuchung</button>
+        </div>
+    </div>
+
+    <script>
+        const measurementDatabase = {
+            "Schulter": [
+                { name: "Flexion", instruction: "Ausgangsstellung: Stehend oder sitzend.<br>Handy-Position: Längs an die Außenseite des Oberarms anlegen." },
+                { name: "Extension", instruction: "Ausgangsstellung: Stehend oder sitzend.<br>Handy-Position: Längs an die Außenseite des Oberarms anlegen." },
+                { name: "Abduktion", instruction: "Ausgangsstellung: Stehend oder sitzend.<br>Handy-Position: Längs an die Außenseite des Oberarms anlegen." },
+                { name: "Außenrotation", instruction: "Ausgangsstellung: Stehend/sitzend, Ellenbogen 90° gebeugt.<br>Handy-Position: Längs am Unterarm anlegen." },
+                { name: "Innenrotation", instruction: "Ausgangsstellung: Stehend/sitzend, Ellenbogen 90° gebeugt.<br>Handy-Position: Längs am Unterarm anlegen." }
+            ],
+            "Ellenbogen": [
+                { name: "Flexion", instruction: "Ausgangsstellung: Sitzend.<br>Handy-Position: Längs an die Außenseite des Unterarms anlegen." },
+                { name: "Extension", instruction: "Ausgangsstellung: Sitzend.<br>Handy-Position: Längs an die Außenseite des Unterarms anlegen." }
+            ],
+            "Hüfte": [
+                { name: "Flexion", instruction: "Ausgangsstellung: Rückenlage.<br>Handy-Position: Längs an der Außenseite des Oberschenkels anlegen." },
+                { name: "Extension", instruction: "Ausgangsstellung: Seitlage.<br>Handy-Position: Längs an der Außenseite des Oberschenkels anlegen." },
+                { name: "Abduktion", instruction: "Ausgangsstellung: Seitlage.<br>Handy-Position: Längs an der Außenseite des Oberschenkels anlegen." },
+                { name: "Innenrotation", instruction: "Ausgangsstellung: Rückenlage, Hüfte & Knie 90° gebeugt.<br>Handy-Position: Längs am Unterschenkel anlegen." },
+                { name: "Außenrotation", instruction: "Ausgangsstellung: Rückenlage, Hüfte & Knie 90° gebeugt.<br>Handy-Position: Längs am Unterschenkel anlegen." }
+            ],
+            "Knie": [
+                { name: "Flexion", instruction: "Ausgangsstellung: Rückenlage.<br>Handy-Position: Längs an der Außenseite des Unterschenkels anlegen." },
+                { name: "Extension", instruction: "Ausgangsstellung: Rückenlage.<br>Handy-Position: Längs an der Außenseite des Unterschenkels anlegen." }
+            ],
+            "OSG": [
+                { name: "Dorsalextension", instruction: "Ausgangsstellung: Sitzend (Knie 90° gebeugt).<br>Handy-Position: Längs an den Fußrand anlegen." },
+                { name: "Plantarflexion", instruction: "Ausgangsstellung: Sitzend (Knie 90° gebeugt).<br>Handy-Position: Längs an den Fußrand anlegen." }
+            ]
+        };
+
+        let mode = "standard";
+        let taskQueue = [];
+        let currentTaskIndex = 0;
+        let results = [];
+        let freeResults = [];
+        
+        let currentQuaternion = null;
+        let zeroQuaternion = null;
+        let currentAngle = 0;
+        let isMeasuring = false;
+        let sensorsActive = false;
+
+        function startApp() {
+            mode = "standard";
+            checkPermissionsAndRun(buildQueue);
+        }
+
+        function startFreeMeasurementMode() {
+            mode = "free";
+            checkPermissionsAndRun(() => {
+                document.getElementById('screen-setup').classList.add('hidden');
+                document.getElementById('screen-free').classList.remove('hidden');
+                resetFreeInputs();
+            });
+        }
+
+        function checkPermissionsAndRun(callback) {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            initSensors();
+                            callback();
+                        } else {
+                            alert("Sensoren-Zugriff verweigert.");
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                initSensors();
+                callback();
+            }
+        }
+
+        function buildQueue() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            taskQueue = [];
+            
+            checkboxes.forEach(cb => {
+                const joint = cb.value;
+                measurementDatabase[joint].forEach(task => {
+                    taskQueue.push({ joint: joint, name: task.name, side: "Rechts", instruction: task.instruction });
+                });
+            });
+
+            checkboxes.forEach(cb => {
+                const joint = cb.value;
+                measurementDatabase[joint].forEach(task => {
+                    taskQueue.push({ joint: joint, name: task.name, side: "Links", instruction: task.instruction });
+                });
+            });
+
+            if (taskQueue.length === 0) {
+                alert("Bitte wähle mindestens ein Gelenk aus.");
+                return;
+            }
+
+            document.getElementById('screen-setup').classList.add('hidden');
+            document.getElementById('screen-measurement').classList.remove('hidden');
+            
+            currentTaskIndex = 0;
+            loadTask();
+        }
+
+        function loadTask() {
+            const task = taskQueue[currentTaskIndex];
+            document.getElementById('m-title').innerText = `${task.joint} - ${task.name}`;
+            
+            const badge = document.getElementById('m-side-badge');
+            badge.innerText = task.side.toUpperCase();
+            badge.className = task.side === "Rechts" ? "side-badge badge-rechts" : "side-badge badge-links";
+
+            document.getElementById('m-instruction').innerHTML = `<strong>Ablauf (${task.side}):</strong><br>${task.instruction}`;
+            
+            const imgText = `${task.joint}+${task.name}+(${task.side})`;
+            const imgColor = task.side === "Rechts" ? "e67e22" : "8e44ad";
+            document.getElementById('m-image').src = `https://placehold.co/600x400/${imgColor}/ffffff?text=${encodeURIComponent(imgText)}`;
+
+            zeroQuaternion = null;
+            isMeasuring = false;
+            currentAngle = 0;
+            document.getElementById('angle-value').innerText = "--°";
+            document.getElementById('angle-value').style.color = "var(--primary)";
+            
+            document.getElementById('btn-zero').classList.remove('hidden');
+            document.getElementById('btn-save').classList.remove('hidden');
+            document.getElementById('btn-save').disabled = true;
+            document.getElementById('btn-next').classList.add('hidden');
+            document.getElementById('btn-skip').classList.remove('hidden');
+        }
+
+        function setZero() {
+            if (!currentQuaternion) {
+                alert("Keine Sensordaten empfangen. (Öffnest du die App am PC? Sensoren funktionieren nur auf Smartphones).");
+                return;
+            }
+            zeroQuaternion = { ...currentQuaternion };
+            isMeasuring = true;
+            document.getElementById('btn-save').disabled = false;
+            document.getElementById('angle-value').style.color = "var(--text)";
+        }
+
+        function setFreeZero() {
+            if (!currentQuaternion) {
+                alert("Keine Sensordaten empfangen. (Öffnest du die App am PC? Sensoren funktionieren nur auf Smartphones).");
+                return;
+            }
+            zeroQuaternion = { ...currentQuaternion };
+            isMeasuring = true;
+            document.getElementById('btn-free-save').disabled = false;
+            document.getElementById('free-angle-value').style.color = "var(--text)";
+        }
+
+        function saveValue() {
+            isMeasuring = false; 
+            const task = taskQueue[currentTaskIndex];
+            
+            const existingIndex = results.findIndex(r => r.joint === task.joint && r.movement === task.name && r.side === task.side);
+            if (existingIndex >= 0) {
+                results[existingIndex].angle = Math.round(currentAngle);
+            } else {
+                results.push({ joint: task.joint, movement: task.name, side: task.side, angle: Math.round(currentAngle) });
+            }
+
+            document.getElementById('angle-value').style.color = "var(--success)";
+            document.getElementById('btn-zero').classList.add('hidden');
+            document.getElementById('btn-save').classList.add('hidden');
+            document.getElementById('btn-next').classList.remove('hidden');
+            document.getElementById('btn-skip').classList.add('hidden');
+        }
+
+        function saveFreeValue() {
+            isMeasuring = false;
+            const label = document.getElementById('freeLabelInput').value.trim() || "Unbenannte Messung";
+            freeResults.push({ label: label, angle: Math.round(currentAngle) });
+            updateFreeListUI();
+            resetFreeInputs();
+        }
+
+        function resetFreeInputs() {
+            document.getElementById('freeLabelInput').value = "";
+            zeroQuaternion = null;
+            isMeasuring = false;
+            currentAngle = 0;
+            document.getElementById('free-angle-value').innerText = "--°";
+            document.getElementById('free-angle-value').style.color = "var(--primary)";
+            document.getElementById('btn-free-save').disabled = true;
+        }
+
+        function updateFreeListUI() {
+            const container = document.getElementById('freeListContainer');
+            if (freeResults.length === 0) {
+                container.innerHTML = `<i style="color: #999;">Noch keine Messungen in dieser Sitzung.</i>`;
+                return;
+            }
+            let html = "";
+            freeResults.forEach((item, index) => {
+                html += `<div class="free-item"><span>${index + 1}. ${item.label}</span><strong>${item.angle}°</strong></div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function skipMeasurement() {
+            isMeasuring = false;
+            const task = taskQueue[currentTaskIndex];
+            const existingIndex = results.findIndex(r => r.joint === task.joint && r.movement === task.name && r.side === task.side);
+            if (existingIndex >= 0) results.splice(existingIndex, 1);
+            nextMeasurement();
+        }
+
+        function nextMeasurement() {
+            currentTaskIndex++;
+            if (currentTaskIndex >= taskQueue.length) {
+                showResults();
+            } else {
+                loadTask();
+            }
+        }
+
+        function showResults() {
+            document.getElementById('screen-measurement').classList.add('hidden');
+            document.getElementById('screen-free').classList.add('hidden');
+            document.getElementById('screen-results').classList.remove('hidden');
+
+            const pName = document.getElementById('patientName').value || "Unbekannt";
+            document.getElementById('res-patient').innerText = pName;
+
+            let htmlContent = "";
+
+            if (results.length > 0) {
+                const groupedResults = {};
+                results.forEach(res => {
+                    if (!groupedResults[res.joint]) groupedResults[res.joint] = {};
+                    if (!groupedResults[res.joint][res.movement]) groupedResults[res.joint][res.movement] = { "Rechts": "-", "Links": "-" };
+                    groupedResults[res.joint][res.movement][res.side] = res.angle;
+                });
+
+                let maxDevPercent = 0;
+                let maxDevKey = null;
+
+                for (const joint in groupedResults) {
+                    for (const movement in groupedResults[joint]) {
+                        const vals = groupedResults[joint][movement];
+                        if (typeof vals["Rechts"] === 'number' && typeof vals["Links"] === 'number') {
+                            let r = vals["Rechts"], l = vals["Links"], maxVal = Math.max(r, l);
+                            if (maxVal > 0) {
+                                let dev = (Math.abs(r - l) / maxVal) * 100;
+                                if (dev > 10 && dev > maxDevPercent) {
+                                    maxDevPercent = dev;
+                                    maxDevKey = `${joint}|${movement}`;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                htmlContent += `<h3>Standard-Untersuchung</h3><table><thead><tr><th>Gelenk</th><th>Bewegung</th><th>Rechts</th><th>Links</th><th>Aktion</th></tr></thead><tbody>`;
+
+                for (const joint in groupedResults) {
+                    for (const movement in groupedResults[joint]) {
+                        const vals = groupedResults[joint][movement];
+                        const isHighlight = (`${joint}|${movement}` === maxDevKey);
+                        htmlContent += `
+                            <tr class="${isHighlight ? 'highlight-row' : ''}">
+                                <td><strong>${joint}</strong></td>
+                                <td>${movement}${isHighlight ? `<br><span class="deviation-badge">Max. Abweichung (${Math.round(maxDevPercent)}%)</span>` : ''}</td>
+                                <td class="td-rechts">${vals["Rechts"] !== "-" ? vals["Rechts"] + "°" : "-"}</td>
+                                <td class="td-links">${vals["Links"] !== "-" ? vals["Links"] + "°" : "-"}</td>
+                                <td><button class="btn-warning" onclick="retestItem('${joint}', '${movement}')">Re-Test</button></td>
+                            </tr>`;
+                    }
+                }
+                htmlContent += `</tbody></table>`;
+            }
+
+            if (freeResults.length === 0 && results.length === 0) {
+                htmlContent = `<p>Keine Messungen durchgeführt.</p>`;
+            }
+
+            document.getElementById('resultsContainer').innerHTML = htmlContent;
+        }
+
+        function retestItem(joint, movement) {
+            const taskDef = measurementDatabase[joint].find(t => t.name === movement);
+            taskQueue = [
+                { joint: joint, name: movement, side: "Rechts", instruction: taskDef.instruction },
+                { joint: joint, name: movement, side: "Links", instruction: taskDef.instruction }
+            ];
+            currentTaskIndex = 0;
+            document.getElementById('screen-results').classList.add('hidden');
+            document.getElementById('screen-measurement').classList.remove('hidden');
+            loadTask();
+        }
+
+        function exportPDF() {
+            const element = document.getElementById('screen-results');
+            const opt = {
+                margin: 10,
+                filename: `Goniometer_Messung_${document.getElementById('patientName').value || 'Patient'}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            const buttons = element.querySelectorAll('button');
+            buttons.forEach(b => b.style.display = 'none');
+            html2pdf().set(opt).from(element).save().then(() => buttons.forEach(b => b.style.display = 'block'));
+        }
+
+        function initSensors() {
+            window.addEventListener('deviceorientation', handleOrientation, true);
+        }
+
+        function handleOrientation(event) {
+            if (event.alpha === null || event.beta === null || event.gamma === null) return;
+            
+            // Sensoren sind aktiv! UI Indikator aktualisieren
+            currentQuaternion = getQuaternionFromEuler(event.alpha, event.beta, event.gamma);
+            
+            const statusBox = document.getElementById('sensorStatusBox');
+            const statusBoxFree = document.getElementById('sensorStatusBoxFree');
+            
+            if (statusBox) {
+                statusBox.innerText = "Sensoren aktiv & empfangen Daten";
+                statusBox.className = "sensor-status status-ok";
+            }
+            if (statusBoxFree) {
+                statusBoxFree.innerText = "Sensoren aktiv & empfangen Daten";
+                statusBoxFree.className = "sensor-status status-ok";
+            }
+
+            if (isMeasuring && zeroQuaternion) {
+                currentAngle = angleBetweenQuaternions(zeroQuaternion, currentQuaternion);
+                if (mode === "standard") {
+                    document.getElementById('angle-value').innerText = Math.round(currentAngle) + '°';
+                } else {
+                    document.getElementById('free-angle-value').innerText = Math.round(currentAngle) + '°';
+                }
+            }
+        }
+
+        function getQuaternionFromEuler(alpha, beta, gamma) {
+            const deg2rad = Math.PI / 180;
+            const _x = beta * deg2rad, _y = gamma * deg2rad, _z = alpha * deg2rad;
+            const cX = Math.cos(_x / 2), sX = Math.sin(_x / 2);
+            const cY = Math.cos(_y / 2), sY = Math.sin(_y / 2);
+            const cZ = Math.cos(_z / 2), sZ = Math.sin(_z / 2);
+
+            return {
+                w: cX * cY * cZ - sX * sY * sZ,
+                x: sX * cY * cZ - cX * sY * sZ,
+                y: cX * sY * cZ + sX * cY * sZ,
+                z: cX * cY * sZ + sX * cY * sZ
+            };
+        }
+
+        function angleBetweenQuaternions(q1, q2) {
+            let dot = q1.w*q2.w + q1.x*q2.x + q1.y*q2.y + q1.z*q2.z;
+            dot = Math.min(1.0, Math.max(-1.0, Math.abs(dot))); 
+            return 2 * Math.acos(dot) * (180 / Math.PI);
+        }
+    </script>
+</body>
+</html>
