@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goniometer - Physio Pro Version</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root { --primary: #005b96; --secondary: #03396c; --bg: #f4f7f6; --text: #333; --card: #ffffff; --success: #28a745; --right-color: #e67e22; --left-color: #8e44ad; --neutral-color: #00a8ff; --danger: #d9534f; --gray: #6c757d; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; background-color: var(--bg); color: var(--text); }
+        header { background-color: var(--primary); color: white; padding: 1rem; text-align: center; }
+        .container { max-width: 600px; margin: 0 auto; padding: 1rem; }
+        .card { background: var(--card); border-radius: 10px; padding: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+        h1, h2, h3 { margin-top: 0; }
+        
+        button { width: 100%; padding: 1rem; margin: 0.5rem 0; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--secondary); }
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-warning { background-color: #f0ad4e; color: white; padding: 0.5rem 1rem; font-size: 0.9rem; width: auto; }
+        .btn-outline { background-color: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-skip { background-color: transparent; border: 2px solid var(--gray); color: var(--gray); font-size: 0.95rem; padding: 0.6rem; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; border-color: #ccc; color: #666; }
+
+        .checkbox-group { display: flex; flex-direction: column; gap: 10px; margin: 15px 0; }
+        .checkbox-label { display: flex; align-items: center; font-size: 1.2rem; padding: 10px; background: #eee; border-radius: 8px; cursor: pointer;}
+        .checkbox-label input { width: 25px; height: 25px; margin-right: 15px; }
+        input[type="text"] { width: 100%; padding: 10px; font-size: 1.1rem; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; }
+
+        .title-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .side-badge { padding: 5px 15px; border-radius: 20px; color: white; font-size: 1.2rem; font-weight: bold; }
+        .badge-rechts { background-color: var(--right-color); }
+        .badge-links { background-color: var(--left-color); }
+        .badge-neutral { background-color: var(--neutral-color); }
+        
+        .sensor-status { font-family: monospace; font-size: 0.95rem; padding: 10px; border-radius: 4px; text-align: center; margin-bottom: 10px; font-weight: bold; }
+        .status-ok { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        .angle-display { font-size: 4rem; font-weight: bold; text-align: center; color: var(--primary); margin: 1rem 0; }
+        .instruction-text { font-size: 1.1rem; line-height: 1.5; background: #eef5f9; padding: 10px; border-left: 4px solid var(--primary); margin-bottom: 1rem;}
+        .hardware-hint { font-size: 0.85rem; color: #666; text-align: center; margin-top: 10px; background: #fff3cd; padding: 5px; border-radius: 5px;}
+
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; text-align: center; }
+        th, td { border: 1px solid #ddd; padding: 10px; }
+        th { background-color: var(--primary); color: white; text-align: center; }
+        td:first-child, td:nth-child(2) { text-align: left; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        
+        .td-rechts { color: var(--right-color); }
+        .td-links { color: var(--left-color); }
+        .highlight-row { background-color: #fcf8e3 !important; }
+        
+        .retest-old { text-decoration: line-through; color: #999; font-size: 0.85em; margin-right: 5px; }
+        .retest-new { font-weight: bold; color: var(--primary); font-size: 1.1em; }
+
+        .free-list { background: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin-top: 15px; max-height: 150px; overflow-y: auto; text-align: left; }
+        .free-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Smart Goniometer</h1>
+        <p>Neutral-0-Methode | Mit Re-Test & HWS</p>
+    </header>
+
+    <div class="container">
+        <!-- SCREEN 1: AUSWAHL -->
+        <div id="screen-setup" class="card">
+            <h2>Neue Untersuchung</h2>
+            <label>Patienten-ID / Name:</label>
+            <input type="text" id="patientName" placeholder="Max Mustermann">
+            
+            <h3>Option A: Vordefinierte Gelenke</h3>
+            <div class="checkbox-group">
+                <label class="checkbox-label"><input type="checkbox" value="HWS"> HWS (Kopf)</label>
+                <label class="checkbox-label"><input type="checkbox" value="Schulter"> Schulter</label>
+                <label class="checkbox-label"><input type="checkbox" value="Ellenbogen"> Ellenbogen</label>
+                <label class="checkbox-label"><input type="checkbox" value="Hüfte"> Hüfte</label>
+                <label class="checkbox-label"><input type="checkbox" value="Knie"> Knie</label>
+                <label class="checkbox-label"><input type="checkbox" value="OSG"> OSG</label>
+            </div>
+            <button class="btn-primary" onclick="startApp()">Standard-Messung Starten</button>
+
+            <hr style="margin: 25px 0; border: 0; border-top: 2px solid #eee;">
+
+            <h3>Option B: Freie Messung</h3>
+            <button class="btn-outline" onclick="startFreeMeasurementMode()">Freie Messung Starten</button>
+            <p id="error-msg" style="color: red; text-align: center; font-weight: bold; margin-top: 15px;"></p>
+        </div>
+
+        <!-- SCREEN 2: STANDARD MESSUNG -->
+        <div id="screen-measurement" class="card hidden">
+            <div class="title-flex">
+                <h2 id="m-title" style="margin: 0;">Gelenk - Bewegung</h2>
+                <div id="m-side-badge" class="side-badge">RECHTS</div>
+            </div>
+            
+            <div id="sensorStatusBox" class="sensor-status status-error">❌ Warte auf Sensoren... (Bewegen!)</div>
+
+            <div class="instruction-text" id="m-instruction" style="margin-top: 10px;">Anleitungstext hier...</div>
+            
+            <div class="angle-display" id="angle-value">--°</div>
+            
+            <button id="btn-zero" class="btn-outline" onclick="setZero()">1. Neutralstellung (0°) setzen</button>
+            <button id="btn-save" class="btn-primary" onclick="saveValue()" disabled>2. Wert speichern</button>
+            <button id="btn-next" class="btn-success hidden" onclick="nextMeasurement()">3. Fertig (Nächste)</button>
+            
+            <p class="hardware-hint">
+                🎛️ <strong>Hardware-Tasten (Android):</strong><br>Leiser = 0° setzen | Lauter = Speichern
+            </p>
+
+            <button id="btn-skip" class="btn-skip" onclick="skipMeasurement()">Überspringen</button>
+        </div>
+
+        <!-- SCREEN 2B: FREIE MESSUNG -->
+        <div id="screen-free" class="card hidden">
+            <h2>Freie Messung</h2>
+            <label>Bezeichnung:</label>
+            <input type="text" id="freeLabelInput" placeholder="z.B. Rumpf Flexion">
+            
+            <div id="sensorStatusBoxFree" class="sensor-status status-error">❌ Warte auf Sensoren... (Bewegen!)</div>
+
+            <div class="angle-display" id="free-angle-value">--°</div>
+            
+            <button id="btn-free-zero" class="btn-outline" onclick="setFreeZero()">1. Neutralstellung (0°) setzen</button>
+            <button id="btn-free-save" class="btn-primary" onclick="saveFreeValue()" disabled>2. Wert speichern</button>
+            
+            <p class="hardware-hint">🎛️ Leiser-Taste = 0° | Lauter-Taste = Speichern</p>
+
+            <div style="margin-top: 20px;">
+                <h4 style="margin-bottom: 5px;">Bereits gespeichert:</h4>
+                <div class="free-list" id="freeListContainer">
+                    <i style="color: #999;">Noch keine Messungen.</i>
+                </div>
+            </div>
+            <button class="btn-success" style="margin-top: 20px;" onclick="showResults()">Beenden & Auswerten</button>
+        </div>
+
+        <!-- SCREEN 3: ERGEBNISSE -->
+        <div id="screen-results" class="card hidden">
+            <h2>Ergebnisse (Pre & Post)</h2>
+            <p>Patient: <strong id="res-patient"></strong></p>
+            <div id="resultsContainer"></div>
+            <button class="btn-primary" style="margin-top: 20px;" onclick="exportPDF()">Als PDF speichern</button>
+            <button class="btn-outline" onclick="location.reload()">Neue Untersuchung</button>
+        </div>
+    </div>
+
+    <script>
+        // Datenbank inkl. HWS Cluster und neuem OSG Text. "sides" definiert, ob Rechts/Links abfragt wird.
+        const measurementDatabase = {
+            "HWS": [ 
+                { name: "Flexion", instruction: "Ausgangsstellung: Sitzend, gerader Blick.<br>Handy-Position: Längs seitlich am Kopf (Ohrachse) anlegen.", sides: ["Neutral"] },
+                { name: "Extension", instruction: "Ausgangsstellung: Sitzend, gerader Blick.<br>Handy-Position: Längs seitlich am Kopf anlegen.", sides: ["Neutral"] },
+                { name: "Rotation", instruction: "Ausgangsstellung: Sitzend oder Rückenlage.<br>Handy-Position: Flach auf die Stirn legen.", sides: ["Rechts", "Links"] },
+                { name: "Lateralflexion", instruction: "Ausgangsstellung: Sitzend.<br>Handy-Position: Längs am Hinterkopf oder Stirn anlegen.", sides: ["Rechts", "Links"] }
+            ],
+            "Schulter": [ 
+                { name: "Flexion", instruction: "Stehend/Sitzend. Handy an Außenseite Oberarm.", sides: ["Rechts", "Links"] }, 
+                { name: "Abduktion", instruction: "Stehend/Sitzend. Handy an Außenseite Oberarm.", sides: ["Rechts", "Links"] }, 
+                { name: "Außenrotation", instruction: "Ellenbogen 90° gebeugt. Handy an Unterarm.", sides: ["Rechts", "Links"] },
+                { name: "Innenrotation", instruction: "Ellenbogen 90° gebeugt. Handy an Unterarm.", sides: ["Rechts", "Links"] }
+            ],
+            "Ellenbogen": [ 
+                { name: "Flexion", instruction: "Sitzend. Handy an Außenseite Unterarm.", sides: ["Rechts", "Links"] }, 
+                { name: "Extension", instruction: "Sitzend. Handy an Außenseite Unterarm.", sides: ["Rechts", "Links"] } 
+            ],
+            "Hüfte": [ 
+                { name: "Flexion", instruction: "Rückenlage. Handy an Außenseite Oberschenkel.", sides: ["Rechts", "Links"] }, 
+                { name: "Abduktion", instruction: "Seitlage. Handy an Außenseite Oberschenkel.", sides: ["Rechts", "Links"] },
+                { name: "Innenrotation", instruction: "Hüfte/Knie 90° gebeugt. Handy an Unterschenkel.", sides: ["Rechts", "Links"] },
+                { name: "Außenrotation", instruction: "Hüfte/Knie 90° gebeugt. Handy an Unterschenkel.", sides: ["Rechts", "Links"] }
+            ],
+            "Knie": [ 
+                { name: "Flexion", instruction: "Rückenlage. Handy an Außenseite Unterschenkel.", sides: ["Rechts", "Links"] }, 
+                { name: "Extension", instruction: "Rückenlage. Handy an Außenseite Unterschenkel.", sides: ["Rechts", "Links"] } 
+            ],
+            "OSG": [ 
+                { name: "Dorsalextension", instruction: "Ausgangsstellung: Fuß aufgesetzt (z.B. Knie-Wand-Test / Ausfallschritt).<br>Handy-Position: Längs an der Vorderkante des Unterschenkels (Tibia) anlegen.", sides: ["Rechts", "Links"] }, 
+                { name: "Plantarflexion", instruction: "Ausgangsstellung: Sitzend oder Rückenlage.<br>Handy-Position: Längs an der Vorderkante des Unterschenkels (Tibia) anlegen.", sides: ["Rechts", "Links"] } 
+            ]
+        };
+
+        let mode = "standard";
+        let taskQueue = [];
+        let currentTaskIndex = 0;
+        let results = [];
+        let freeResults = [];
+        
+        let currentQuaternion = null;
+        let zeroQuaternion = null;
+        let currentAngle = 0;
+        let isMeasuring = false;
+
+        // --- HARDWARE BUTTON LOGIK ---
+        // Hört auf Volume Down (Leiser) und Volume Up (Lauter).
+        window.addEventListener('keydown', function(event) {
+            // Volume Down -> Neutral (0°)
+            if (event.key === "AudioVolumeDown" || event.key === "VolumeDown" || event.keyCode === 114 || event.keyCode === 174) {
+                event.preventDefault();
+                if (mode === "standard" && !document.getElementById('btn-zero').classList.contains('hidden')) setZero();
+                if (mode === "free" && !document.getElementById('btn-free-zero').classList.contains('hidden')) setFreeZero();
+            }
+            // Volume Up -> Speichern
+            if (event.key === "AudioVolumeUp" || event.key === "VolumeUp" || event.keyCode === 115 || event.keyCode === 175) {
+                event.preventDefault();
+                if (mode === "standard" && !document.getElementById('btn-save').disabled && !document.getElementById('btn-save').classList.contains('hidden')) saveValue();
+                if (mode === "free" && !document.getElementById('btn-free-save').disabled && !document.getElementById('btn-free-save').classList.contains('hidden')) saveFreeValue();
+            }
+        });
+
+
+        function startApp() { mode = "standard"; checkPermissionsAndRun(buildQueue); }
+        function startFreeMeasurementMode() { mode = "free"; checkPermissionsAndRun(() => {
+            document.getElementById('screen-setup').classList.add('hidden');
+            document.getElementById('screen-free').classList.remove('hidden');
+            resetFreeInputs();
+        });}
+
+        function checkPermissionsAndRun(callback) {
+            document.getElementById('error-msg').innerText = "";
+            window.focus(); // Fokus auf das Fenster setzen für keydown events
+            
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation, true);
+                            callback();
+                        } else {
+                            document.getElementById('error-msg').innerText = "⚠️ iOS blockiert Sensoren! Du musst die Erlaubnis erteilen.";
+                        }
+                    })
+                    .catch(err => {
+                        document.getElementById('error-msg').innerText = "⚠️ Fehler bei Rechteabfrage: " + err.message;
+                    });
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation, true);
+                callback();
+            }
+        }
+
+        // --- SENSOR LOGIK ---
+        function handleOrientation(event) {
+            if (event.beta === null && event.gamma === null) return; 
+
+            let a = event.alpha;
+            if (a === null && event.webkitCompassHeading !== undefined) { a = event.webkitCompassHeading; }
+            a = a || 0; 
+            let b = event.beta || 0;
+            let g = event.gamma || 0;
+
+            currentQuaternion = getQuaternionFromEuler(a, b, g);
+            
+            const debugText = `✅ Raw: α:${Math.round(a)} | β:${Math.round(b)} | γ:${Math.round(g)}`;
+            const sBox = document.getElementById('sensorStatusBox');
+            const sBoxFree = document.getElementById('sensorStatusBoxFree');
+            
+            if (sBox) { sBox.innerText = debugText; sBox.className = "sensor-status status-ok"; }
+            if (sBoxFree) { sBoxFree.innerText = debugText; sBoxFree.className = "sensor-status status-ok"; }
+
+            if (isMeasuring && zeroQuaternion) {
+                currentAngle = angleBetweenQuaternions(zeroQuaternion, currentQuaternion);
+                if (mode === "standard") {
+                    document.getElementById('angle-value').innerText = Math.round(currentAngle) + '°';
+                } else {
+                    document.getElementById('free-angle-value').innerText = Math.round(currentAngle) + '°';
+                }
+            }
+        }
+
+        function getQuaternionFromEuler(alpha, beta, gamma) {
+            const deg2rad = Math.PI / 180;
+            const x = beta * deg2rad, y = gamma * deg2rad, z = alpha * deg2rad;
+            const cX = Math.cos(x/2), sX = Math.sin(x/2), cY = Math.cos(y/2), sY = Math.sin(y/2), cZ = Math.cos(z/2), sZ = Math.sin(z/2);
+            return { w: cX*cY*cZ - sX*sY*sZ, x: sX*cY*cZ - cX*sY*sZ, y: cX*sY*cZ + sX*cY*sZ, z: cX*cY*sZ + sX*sY*cZ };
+        }
+
+        function angleBetweenQuaternions(q1, q2) {
+            let dot = q1.w*q2.w + q1.x*q2.x + q1.y*q2.y + q1.z*q2.z;
+            return 2 * Math.acos(Math.min(1.0, Math.max(-1.0, Math.abs(dot)))) * (180 / Math.PI);
+        }
+
+        // --- UI LOGIK ---
+        function buildQueue() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            taskQueue = [];
+            
+            // Erst alles was Rechts oder Neutral (ohne Seitenunterschied) ist
+            checkboxes.forEach(cb => { 
+                measurementDatabase[cb.value].forEach(t => {
+                    if(t.sides.includes("Rechts")) taskQueue.push({ joint: cb.value, name: t.name, side: "Rechts", instruction: t.instruction });
+                    else if (t.sides.includes("Neutral")) taskQueue.push({ joint: cb.value, name: t.name, side: "Neutral", instruction: t.instruction });
+                });
+            });
+            // Dann alles was Links ist
+            checkboxes.forEach(cb => { 
+                measurementDatabase[cb.value].forEach(t => {
+                    if(t.sides.includes("Links")) taskQueue.push({ joint: cb.value, name: t.name, side: "Links", instruction: t.instruction });
+                });
+            });
+
+            if (taskQueue.length === 0) { alert("Bitte wähle mindestens ein Gelenk."); return; }
+            document.getElementById('screen-setup').classList.add('hidden');
+            document.getElementById('screen-measurement').classList.remove('hidden');
+            currentTaskIndex = 0; loadTask();
+        }
+
+        function loadTask() {
+            const task = taskQueue[currentTaskIndex];
+            document.getElementById('m-title').innerText = `${task.joint} - ${task.name}`;
+            
+            const badge = document.getElementById('m-side-badge');
+            if (task.side === "Neutral") {
+                badge.innerText = "MITTE / BEIDSEITIG";
+                badge.className = "side-badge badge-neutral";
+            } else {
+                badge.innerText = task.side.toUpperCase();
+                badge.className = task.side === "Rechts" ? "side-badge badge-rechts" : "side-badge badge-links";
+            }
+            
+            document.getElementById('m-instruction').innerHTML = `<strong>Ablauf (${task.side}):</strong><br>${task.instruction}`;
+            
+            zeroQuaternion = null; isMeasuring = false; currentAngle = 0;
+            document.getElementById('angle-value').innerText = "--°"; document.getElementById('angle-value').style.color = "var(--primary)";
+            document.getElementById('btn-zero').classList.remove('hidden'); document.getElementById('btn-save').classList.remove('hidden');
+            document.getElementById('btn-save').disabled = true; document.getElementById('btn-next').classList.add('hidden'); document.getElementById('btn-skip').classList.remove('hidden');
+        }
+
+        function setZero() {
+            if (!currentQuaternion) { alert("Sensordaten fehlen. Bewege das Handy!"); return; }
+            zeroQuaternion = { ...currentQuaternion }; isMeasuring = true;
+            document.getElementById('btn-save').disabled = false; document.getElementById('angle-value').style.color = "var(--text)";
+        }
+        function setFreeZero() {
+            if (!currentQuaternion) { alert("Sensordaten fehlen."); return; }
+            zeroQuaternion = { ...currentQuaternion }; isMeasuring = true;
+            document.getElementById('btn-free-save').disabled = false; document.getElementById('free-angle-value').style.color = "var(--text)";
+        }
+
+        // WICHTIG: Re-Test Logik speichert neuen Wert in ".retestAngle" ohne den alten ".angle" zu löschen
+        function saveValue() {
+            isMeasuring = false; const task = taskQueue[currentTaskIndex];
+            const idx = results.findIndex(r => r.joint === task.joint && r.movement === task.name && r.side === task.side);
+            
+            if (idx >= 0) {
+                // Wenn schon gemessen, dann als Re-Test eintragen
+                results[idx].retestAngle = Math.round(currentAngle);
+            } else {
+                // Neue Messung
+                results.push({ joint: task.joint, movement: task.name, side: task.side, angle: Math.round(currentAngle), retestAngle: null });
+            }
+            
+            document.getElementById('angle-value').style.color = "var(--success)";
+            document.getElementById('btn-zero').classList.add('hidden'); document.getElementById('btn-save').classList.add('hidden');
+            document.getElementById('btn-next').classList.remove('hidden'); document.getElementById('btn-skip').classList.add('hidden');
+        }
+
+        function saveFreeValue() {
+            isMeasuring = false; const label = document.getElementById('freeLabelInput').value.trim() || "Unbenannt";
+            freeResults.push({ label: label, angle: Math.round(currentAngle) });
+            const container = document.getElementById('freeListContainer');
+            if(freeResults.length === 1) container.innerHTML = '';
+            container.innerHTML += `<div class="free-item"><span>${freeResults.length}. ${label}</span><strong>${Math.round(currentAngle)}°</strong></div>`;
+            resetFreeInputs();
+        }
+
+        function resetFreeInputs() {
+            document.getElementById('freeLabelInput').value = ""; zeroQuaternion = null; isMeasuring = false; currentAngle = 0;
+            document.getElementById('free-angle-value').innerText = "--°"; document.getElementById('free-angle-value').style.color = "var(--primary)"; document.getElementById('btn-free-save').disabled = true;
+        }
+
+        function skipMeasurement() { isMeasuring = false; nextMeasurement(); }
+        function nextMeasurement() { currentTaskIndex++; if (currentTaskIndex >= taskQueue.length) showResults(); else loadTask(); }
+
+        // Hilfsfunktion um Pre/Post in der Tabelle zu formatieren
+        function formatAngleDisplay(messObj) {
+            if (!messObj) return "-";
+            if (messObj.retestAngle !== null) {
+                return `<span class="retest-old">${messObj.angle}°</span><span class="retest-new">${messObj.retestAngle}°</span>`;
+            }
+            return `<strong>${messObj.angle}°</strong>`;
+        }
+
+        function showResults() {
+            document.getElementById('screen-measurement').classList.add('hidden'); document.getElementById('screen-free').classList.add('hidden'); document.getElementById('screen-results').classList.remove('hidden');
+            document.getElementById('res-patient').innerText = document.getElementById('patientName').value || "Unbekannt";
+            let htmlContent = "";
+
+            if (results.length > 0) {
+                // Datenstruktur für Re-Tests aufbauen
+                const grp = {}; 
+                results.forEach(r => { 
+                    if (!grp[r.joint]) grp[r.joint] = {}; 
+                    if (!grp[r.joint][r.movement]) grp[r.joint][r.movement] = {}; 
+                    grp[r.joint][r.movement][r.side] = { angle: r.angle, retestAngle: r.retestAngle }; 
+                });
+
+                htmlContent += `<h3>Standard-Untersuchung</h3><table><thead><tr><th>Gelenk</th><th>Bewegung</th><th>Rechts</th><th>Links</th><th>Aktion</th></tr></thead><tbody>`;
+                
+                for (const j in grp) { 
+                    for (const m in grp[j]) {
+                        let htmlRechts = formatAngleDisplay(grp[j][m]["Rechts"]);
+                        let htmlLinks = formatAngleDisplay(grp[j][m]["Links"]);
+                        
+                        // Fallback falls es ein HWS "Neutral" Gelenk ist
+                        if(grp[j][m]["Neutral"]) {
+                            let nHtml = formatAngleDisplay(grp[j][m]["Neutral"]);
+                            htmlContent += `<tr><td><strong>${j}</strong></td><td>${m}</td><td colspan="2" style="text-align:center;">${nHtml}</td><td><button class="btn-warning" onclick="retestItem('${j}', '${m}')">Re-Test</button></td></tr>`;
+                        } else {
+                            htmlContent += `<tr><td><strong>${j}</strong></td><td>${m}</td><td class="td-rechts">${htmlRechts}</td><td class="td-links">${htmlLinks}</td><td><button class="btn-warning" onclick="retestItem('${j}', '${m}')">Re-Test</button></td></tr>`;
+                        }
+                    } 
+                }
+                htmlContent += `</tbody></table>`;
+            }
+            if (freeResults.length > 0) {
+                htmlContent += `<h3 style="margin-top:20px;">Freie Messungen</h3><table><thead><tr><th>Bezeichnung</th><th>Winkel</th></tr></thead><tbody>`;
+                freeResults.forEach(i => htmlContent += `<tr><td style="text-align:left;"><strong>${i.label}</strong></td><td><strong>${i.angle}°</strong></td></tr>`);
+                htmlContent += `</tbody></table>`;
+            }
+            document.getElementById('resultsContainer').innerHTML = htmlContent || `<p>Keine Messungen durchgeführt.</p>`;
+        }
+
+        // Baut eine Mini-Warteschlange nur für dieses Gelenk und die erlaubten Seiten auf
+        function retestItem(joint, movement) {
+            const taskDef = measurementDatabase[joint].find(t => t.name === movement);
+            taskQueue = [];
+            if(taskDef.sides.includes("Rechts")) taskQueue.push({ joint, name: movement, side: "Rechts", instruction: taskDef.instruction });
+            if(taskDef.sides.includes("Links")) taskQueue.push({ joint, name: movement, side: "Links", instruction: taskDef.instruction });
+            if(taskDef.sides.includes("Neutral")) taskQueue.push({ joint, name: movement, side: "Neutral", instruction: taskDef.instruction });
+            
+            currentTaskIndex = 0;
+            document.getElementById('screen-results').classList.add('hidden');
+            document.getElementById('screen-measurement').classList.remove('hidden');
+            loadTask();
+        }
+
+        function exportPDF() {
+            const el = document.getElementById('screen-results');
+            const btns = el.querySelectorAll('button'); btns.forEach(b => b.style.display = 'none');
+            // Verstecke die Re-Test Buttons (Spalte 5) in der PDF
+            const tds = el.querySelectorAll('td:nth-child(5), th:nth-child(5)'); tds.forEach(t => t.style.display = 'none');
+
+            html2pdf().set({ margin: 10, filename: `Goniometer_${document.getElementById('patientName').value || 'Patient'}.pdf`, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(el).save().then(() => {
+                btns.forEach(b => b.style.display = 'block');
+                tds.forEach(t => t.style.display = 'table-cell');
+            });
+        }
+    </script>
+</body>
+</html>
